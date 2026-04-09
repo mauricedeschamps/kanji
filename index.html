@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>漢字ステップ - 日本語学習</title>
+  <title>Kanji Step - 日本語学習</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1e1e2f">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,14 +52,12 @@
       line-height: 1.5;
     }
 
-    /* レイアウト */
     .container {
       max-width: 1200px;
       margin: 0 auto;
       padding: 1rem;
     }
 
-    /* ヘッダー */
     .app-header {
       display: flex;
       flex-wrap: wrap;
@@ -105,7 +103,6 @@
       border-color: var(--accent);
     }
 
-    /* メインカードグリッド */
     .part-grid {
       display: flex;
       flex-wrap: wrap;
@@ -143,7 +140,6 @@
       margin-top: 0.5rem;
     }
 
-    /* 詳細ページ */
     .back-bar {
       margin-bottom: 1.5rem;
     }
@@ -262,7 +258,7 @@
 <body class="dark">
   <div class="container" id="app">
     <header class="app-header">
-      <div class="logo"><h1>📖 漢字ステップ</h1></div>
+      <div class="logo"><h1 id="appTitle">📖 漢字ステップ</h1></div>
       <div class="controls">
         <div id="langGroup">
           <button data-lang="en" class="lang-btn active-lang">🇬🇧 English</button>
@@ -273,12 +269,10 @@
       </div>
     </header>
 
-    <!-- メインビュー（品詞一覧） -->
     <main id="mainView">
       <div class="part-grid" id="partsGrid"></div>
     </main>
 
-    <!-- 詳細ビュー（品詞別リスト） -->
     <main id="detailView" class="hidden">
       <div class="back-bar">
         <button class="back-btn" id="backToMain">← 戻る</button>
@@ -296,7 +290,6 @@
   <script>
     // --------------------------------------------------------------
     // 漢字データ (名詞20 / 動詞15 / 形容詞10 / 副詞5)
-    // 各項目: kanji, kana(読み), meanings(各言語の意味), examples(各言語の例文), imagePlaceholder(後で追加用)
     // --------------------------------------------------------------
     const VOCAB_DATA = {
       nouns: [
@@ -359,12 +352,10 @@
       ]
     };
 
-    // 言語とテーマ状態
-    let currentLang = "en";   // 'en', 'zh', 'ja'
-    let currentView = "main"; // 'main' or 'detail'
-    let currentPart = null;    // 'nouns', 'verbs', 'adjectives', 'adverbs'
+    let currentLang = "en";
+    let currentView = "main";
+    let currentPart = null;
 
-    // DOM 要素
     const mainViewDiv = document.getElementById("mainView");
     const detailViewDiv = document.getElementById("detailView");
     const partsGrid = document.getElementById("partsGrid");
@@ -372,8 +363,11 @@
     const wordsContainer = document.getElementById("wordsContainer");
     const backBtn = document.getElementById("backToMain");
     const themeToggle = document.getElementById("themeToggle");
+    const appTitle = document.getElementById("appTitle");
 
-    // ヘルパー: 現在の言語での意味と例文を取得
+    // タイトル多言語対応
+    const titles = { en: "📖 Kanji Step", zh: "📖 汉字阶梯", ja: "📖 漢字ステップ" };
+
     function getMeaning(item) {
       return item.meanings[currentLang] || item.meanings.en;
     }
@@ -381,17 +375,44 @@
       return item.examples[currentLang] || item.examples.en;
     }
 
-    // 音声再生 (テキスト, 言語コード)
-    function speakText(text, langCode) {
-      if (!text || !window.speechSynthesis) return;
-      window.speechSynthesis.cancel(); // 重複停止
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = langCode;
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
+    // 音声連続再生 (キャンセル後、順次再生)
+    let currentUtterance = null;
+    function speakSequence(texts, langCodes) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      if (!texts.length) return;
+      let index = 0;
+      function speakNext() {
+        if (index >= texts.length) return;
+        const utterance = new SpeechSynthesisUtterance(texts[index]);
+        utterance.lang = langCodes[index];
+        utterance.rate = 0.9;
+        utterance.onend = () => {
+          index++;
+          speakNext();
+        };
+        utterance.onerror = () => {
+          index++;
+          speakNext();
+        };
+        currentUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
+      }
+      speakNext();
     }
 
-    // メインページ描画
+    // 例文音声: 日本語モードなら日本語のみ、他言語なら日本語→訳文
+    function playExampleAudio(item) {
+      const jpExample = item.examples.ja;
+      const targetExample = getExample(item);
+      if (currentLang === 'ja') {
+        speakSequence([jpExample], ['ja-JP']);
+      } else {
+        let targetLangCode = currentLang === 'en' ? 'en-US' : 'zh-CN';
+        speakSequence([jpExample, targetExample], ['ja-JP', targetLangCode]);
+      }
+    }
+
     function renderMain() {
       const parts = [
         { id: "nouns", name: { en: "Nouns", zh: "名词", ja: "名詞" }, icon: "📚", desc: { en: "People, places, things", zh: "人、地点、事物", ja: "人・場所・もの" } },
@@ -406,16 +427,11 @@
           <div class="part-desc">${part.desc[currentLang]}</div>
         </div>
       `).join('');
-      // イベント
       document.querySelectorAll('.part-card').forEach(card => {
-        card.addEventListener('click', (e) => {
-          const partId = card.dataset.part;
-          showDetailView(partId);
-        });
+        card.addEventListener('click', () => showDetailView(card.dataset.part));
       });
     }
 
-    // 詳細ビュー: 品詞別リスト
     function showDetailView(partId) {
       currentPart = partId;
       let dataArray, titleKey;
@@ -431,7 +447,6 @@
         const meaning = getMeaning(item);
         const example = getExample(item);
         const imageId = `img_${partId}_${idx}`;
-        // 後からイラストを追加できるプレースホルダー（ダミーアイコン表示）
         return `
           <div class="word-card" data-word-idx="${idx}">
             <div class="word-header">
@@ -441,8 +456,8 @@
             <div class="meaning">📖 ${meaning}</div>
             <div class="example">💬 ${example}</div>
             <div class="audio-buttons">
-              <button class="audio-btn kanji-audio" data-kanji="${item.kanji}" data-kana="${item.kana}">🔊 漢字</button>
-              <button class="audio-btn example-audio" data-example="${example.replace(/['"]/g, '&quot;')}" data-langcode="${currentLang === 'en' ? 'en-US' : currentLang === 'zh' ? 'zh-CN' : 'ja-JP'}">🎧 例文</button>
+              <button class="audio-btn kanji-audio" data-kana="${item.kana}">🔊 漢字</button>
+              <button class="audio-btn example-audio" data-item-idx="${idx}" data-part="${partId}">🎧 例文</button>
             </div>
             <div class="illustration-placeholder" id="${imageId}">
               🖼️ イラスト追加予定 (後から画像可)
@@ -451,18 +466,24 @@
         `;
       }).join('');
       
-      // 音声ボタンイベント
+      // 漢字ボタン
       document.querySelectorAll('.kanji-audio').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const kana = btn.dataset.kana;
-          if (kana) speakText(kana, "ja-JP");
+          if (kana) speakSequence([kana], ['ja-JP']);
         });
       });
+      // 例文ボタン (動的にデータ参照)
       document.querySelectorAll('.example-audio').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const exampleText = btn.dataset.example;
-          const langCode = btn.dataset.langcode;
-          if (exampleText) speakText(exampleText, langCode);
+          const part = btn.dataset.part;
+          const idx = parseInt(btn.dataset.itemIdx);
+          let item = null;
+          if (part === "nouns") item = VOCAB_DATA.nouns[idx];
+          else if (part === "verbs") item = VOCAB_DATA.verbs[idx];
+          else if (part === "adjectives") item = VOCAB_DATA.adjectives[idx];
+          else if (part === "adverbs") item = VOCAB_DATA.adverbs[idx];
+          if (item) playExampleAudio(item);
         });
       });
       
@@ -478,10 +499,9 @@
       currentPart = null;
     }
 
-    // 言語切り替え (UI再描画)
     function setLanguage(lang) {
       currentLang = lang;
-      // アクティブボタンスタイル
+      appTitle.innerText = titles[lang];
       document.querySelectorAll('.lang-btn').forEach(btn => {
         if (btn.dataset.lang === lang) btn.classList.add('active-lang');
         else btn.classList.remove('active-lang');
@@ -493,7 +513,6 @@
       }
     }
 
-    // テーマ切り替え (ダークメイン)
     function initTheme() {
       const isDark = localStorage.getItem('theme') !== 'light';
       document.body.classList.toggle('dark', isDark);
@@ -515,7 +534,6 @@
       }
     }
 
-    // イベント登録
     document.getElementById("langGroup").addEventListener('click', (e) => {
       const langBtn = e.target.closest('.lang-btn');
       if (langBtn && langBtn.dataset.lang) setLanguage(langBtn.dataset.lang);
@@ -523,14 +541,12 @@
     backBtn.addEventListener('click', backToMain);
     themeToggle.addEventListener('click', toggleTheme);
     
-    // Service Worker登録 (PWA)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(reg => console.log('SW registered:', reg)).catch(err => console.log('SW failed:', err));
     }
     
-    // アプリ起動
     initTheme();
-    setLanguage('en'); // デフォルト英語
+    setLanguage('en');
     renderMain();
   </script>
 </body>
