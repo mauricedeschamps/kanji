@@ -155,7 +155,7 @@
     }
     .words-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
       gap: 1.5rem;
       margin-top: 1rem;
     }
@@ -199,6 +199,13 @@
       margin: 0.8rem 0;
       font-style: italic;
       border-left: 3px solid var(--accent);
+    }
+    .example-sub {
+      margin-top: 0.4rem;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      border-top: 1px dashed var(--border);
+      padding-top: 0.4rem;
     }
     .audio-buttons {
       display: flex;
@@ -365,14 +372,21 @@
     const themeToggle = document.getElementById("themeToggle");
     const appTitle = document.getElementById("appTitle");
 
-    // タイトル多言語対応
     const titles = { en: "📖 Kanji Step", zh: "📖 汉字阶梯", ja: "📖 漢字ステップ" };
 
     function getMeaning(item) {
       return item.meanings[currentLang] || item.meanings.en;
     }
-    function getExample(item) {
-      return item.examples[currentLang] || item.examples.en;
+
+    // 例文表示用: 現在の言語に応じて、日本語＋対象言語 or 日本語のみ
+    function getExampleDisplay(item) {
+      const jpExample = item.examples.ja;
+      if (currentLang === 'ja') {
+        return { main: jpExample, sub: null };
+      } else {
+        const targetExample = item.examples[currentLang] || item.examples.en;
+        return { main: jpExample, sub: targetExample };
+      }
     }
 
     // 音声連続再生 (キャンセル後、順次再生)
@@ -404,11 +418,11 @@
     // 例文音声: 日本語モードなら日本語のみ、他言語なら日本語→訳文
     function playExampleAudio(item) {
       const jpExample = item.examples.ja;
-      const targetExample = getExample(item);
       if (currentLang === 'ja') {
         speakSequence([jpExample], ['ja-JP']);
       } else {
-        let targetLangCode = currentLang === 'en' ? 'en-US' : 'zh-CN';
+        const targetExample = item.examples[currentLang] || item.examples.en;
+        const targetLangCode = currentLang === 'en' ? 'en-US' : 'zh-CN';
         speakSequence([jpExample, targetExample], ['ja-JP', targetLangCode]);
       }
     }
@@ -445,8 +459,9 @@
       
       wordsContainer.innerHTML = dataArray.map((item, idx) => {
         const meaning = getMeaning(item);
-        const example = getExample(item);
+        const { main: exampleMain, sub: exampleSub } = getExampleDisplay(item);
         const imageId = `img_${partId}_${idx}`;
+        const subHtml = exampleSub ? `<div class="example-sub">🌐 ${exampleSub}</div>` : '';
         return `
           <div class="word-card" data-word-idx="${idx}">
             <div class="word-header">
@@ -454,7 +469,7 @@
               <div class="reading">${item.kana}</div>
             </div>
             <div class="meaning">📖 ${meaning}</div>
-            <div class="example">💬 ${example}</div>
+            <div class="example">💬 ${exampleMain}${subHtml}</div>
             <div class="audio-buttons">
               <button class="audio-btn kanji-audio" data-kana="${item.kana}">🔊 漢字</button>
               <button class="audio-btn example-audio" data-item-idx="${idx}" data-part="${partId}">🎧 例文</button>
@@ -466,14 +481,12 @@
         `;
       }).join('');
       
-      // 漢字ボタン
       document.querySelectorAll('.kanji-audio').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const kana = btn.dataset.kana;
           if (kana) speakSequence([kana], ['ja-JP']);
         });
       });
-      // 例文ボタン (動的にデータ参照)
       document.querySelectorAll('.example-audio').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const part = btn.dataset.part;
