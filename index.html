@@ -272,7 +272,7 @@
           <button data-lang="zh" class="lang-btn">🇨🇳 中文</button>
           <button data-lang="ja" class="lang-btn">🇯🇵 日本語</button>
         </div>
-        <button id="themeToggle">🌙 Dark mode</button>
+        <button id="themeToggle">🌙 Dark Mode</button>
       </div>
     </header>
 
@@ -530,7 +530,7 @@
       const isDark = localStorage.getItem('theme') !== 'light';
       document.body.classList.toggle('dark', isDark);
       document.body.classList.toggle('light', !isDark);
-      themeToggle.innerText = isDark ? '☀️ Clear mode' : '🌙 Dark mode';
+      themeToggle.innerText = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
     }
     function toggleTheme() {
       const isDark = document.body.classList.contains('dark');
@@ -538,12 +538,12 @@
         document.body.classList.remove('dark');
         document.body.classList.add('light');
         localStorage.setItem('theme', 'light');
-        themeToggle.innerText = '🌙 Dark mode';
+        themeToggle.innerText = '🌙 Dark Mode';
       } else {
         document.body.classList.remove('light');
         document.body.classList.add('dark');
         localStorage.setItem('theme', 'dark');
-        themeToggle.innerText = '☀️ Clear mode';
+        themeToggle.innerText = '☀️ Light Mode';
       }
     }
 
